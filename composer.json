@@ -1,0 +1,26 @@
+{
+  "name": "sha10ff/norm",
+  "type": "library",
+  "license": "WTFPL",
+  "description": "Nano ORM for PDO bases",
+  "authors": [
+    {
+      "name": "Dmitry Shalov",
+      "email": "d@sha1.su"
+    }
+  ],
+  "minimum-stability": "dev",
+  "require": {
+    "php": ">=7.2.0",
+    "ext-json": "*",
+    "ext-pdo": "*"
+  },
+  "require-dev": {
+    "phpunit/phpunit": "^8"
+  },
+  "autoload": {
+    "psr-4": {
+      "NORM\\": "src/"
+    }
+  }
+}
