@@ -5,6 +5,7 @@ namespace NORM;
 use ArrayAccess;
 use JsonSerializable;
 use NORM\SQL\Common\Select;
+use NORM\SQL\Common\Update;
 use NORM\SQL\Expression;
 use PDO;
 use PDOStatement;
@@ -16,8 +17,11 @@ abstract class Table implements JsonSerializable, ArrayAccess
     /** @var string */
     protected static $table = '';
 
-    /** @var array */
+    /** @var array single or composite cols */
     protected static $pk = [];
+
+    /** @var array all cols including pk, "*" in select if empty */
+    protected static $cols = [];
 
     /** @var PDO */
     protected static $pdo = null;
@@ -33,7 +37,11 @@ abstract class Table implements JsonSerializable, ArrayAccess
         static::$pdo = $pdo;
     }
 
-    public static function get($pk): self
+    /**
+     * @param array|mixed $pk
+     * @return static
+     */
+    public static function get($pk): ?self
     {
         $data = [];
         if (!is_array($pk)) {
@@ -44,17 +52,23 @@ abstract class Table implements JsonSerializable, ArrayAccess
         if (!empty($res)) {
             return $res[0];
         }
+        return null;
     }
 
+    /**
+     * @param array $data
+     * @param int|null $limit
+     * @return static[]
+     */
     public static function find(array $data = [], ?int $limit = null): array
     {
-        $query = new Select(static::$table, $data, [], $limit);
+        $query = new Select(static::$table, self::$cols, $data, $limit);
         $return = [];
 
         $res = self::query($query->build());
 
         if ($res) {
-            foreach ($res->fetchAll(PDO::FETCH_ASSOC) as $item) {
+            while ($item = $res->fetch(PDO::FETCH_ASSOC)) {
                 $o = new static($item);
                 $o->loadedData = $item;
                 $return[] = $o;
@@ -103,11 +117,34 @@ abstract class Table implements JsonSerializable, ArrayAccess
         return $this->data;
     }
 
+    public function save(): bool
+    {
+        return false;
+    }
+
+    public function insert(): bool
+    {
+        return false;
+    }
+
     protected static function query(Expression $expression): ?PDOStatement
     {
         $sql = static::$pdo->prepare($expression->getSql());
         foreach ($expression->getParams() as $k => $v) {
-            $sql->bindValue($k, $v);
+
+            $type = PDO::PARAM_STR;
+
+            if (is_int($v)) {
+                $type = PDO::PARAM_INT;
+            }
+            if (is_bool($v)) {
+                $type = PDO::PARAM_BOOL;
+            }
+            if (is_null($v)) {
+                $type = PDO::PARAM_NULL;
+            }
+
+            $sql->bindValue($k, $v, $type);
         }
 
         return $sql->execute() ? $sql : null;
