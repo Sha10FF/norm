@@ -4,9 +4,8 @@ namespace NORM;
 
 use ArrayAccess;
 use JsonSerializable;
-use NORM\SQL\Common\Select;
-use NORM\SQL\Common\Update;
 use NORM\SQL\Expression;
+use NORM\SQL\SqlFactory;
 use PDO;
 use PDOStatement;
 
@@ -17,14 +16,17 @@ abstract class Table implements JsonSerializable, ArrayAccess
     /** @var string */
     protected static $table = '';
 
-    /** @var array single or composite cols */
-    protected static $pk = [];
+    /** @var array single or composite primary */
+    protected static $primaryKey = [];
 
-    /** @var array all cols including pk, "*" in select if empty */
-    protected static $cols = [];
+    /** @var array all columns including pk, "*" in select if empty */
+    protected static $columns = [];
 
     /** @var PDO */
     protected static $pdo = null;
+
+    /** @var string */
+    protected static $pdoDriver;
 
     /** @var array */
     protected $data = [];
@@ -32,9 +34,14 @@ abstract class Table implements JsonSerializable, ArrayAccess
     /** @var array */
     protected $loadedData = [];
 
-    public static function setPDO(PDO $pdo): void
-    {
-        static::$pdo = $pdo;
+    public static function setPDO(
+        string $dsn,
+        string $username = null,
+        string $password = null,
+        array $options = null
+    ): void {
+        self::$pdoDriver = explode(':', $dsn, 1)[0];
+        static::$pdo = new PDO($dsn, $username, $password, $options);
     }
 
     /**
@@ -47,11 +54,12 @@ abstract class Table implements JsonSerializable, ArrayAccess
         if (!is_array($pk)) {
             $pk = [$pk];
         }
-        $data = array_combine(static::$pk, $pk);
+        $data = array_combine(static::$primaryKey, $pk);
         $res = self::find($data, 1);
         if (!empty($res)) {
             return $res[0];
         }
+
         return null;
     }
 
@@ -60,13 +68,11 @@ abstract class Table implements JsonSerializable, ArrayAccess
      * @param int|null $limit
      * @return static[]
      */
-    public static function find(array $data = [], ?int $limit = null): array
+    public static function find(array $where = [], ?int $limit = null): array
     {
-        $query = new Select(static::$table, self::$cols, $data, $limit);
-        $return = [];
-
+        $query = SqlFactory::getSelect(static::$pdoDriver, static::$table, array_keys(self::$columns), $where, $limit);
         $res = self::query($query->build());
-
+        $return = [];
         if ($res) {
             while ($item = $res->fetch(PDO::FETCH_ASSOC)) {
                 $o = new static($item);
@@ -84,13 +90,13 @@ abstract class Table implements JsonSerializable, ArrayAccess
         $this->data = $data;
     }
 
-    public function getPk(): ?array
+    public function getPrimaryKey(): ?array
     {
         $pk = [];
-        if (array_diff(static::$pk, array_keys($this->data))) {
+        if (array_diff(static::$primaryKey, array_keys($this->data))) {
             return null;
         }
-        foreach (static::$pk as $key) {
+        foreach (static::$primaryKey as $key) {
             $pk[] = $this->data[$key];
         }
 
