@@ -6,13 +6,10 @@ use NORM\SQL\Expression;
 use NORM\SQL\Query;
 use NORM\SQL\Syntax;
 
-class Select implements Query
+class Delete implements Query
 {
     /** @var string */
     protected $table = '';
-
-    /** @var array */
-    protected $cols = [];
 
     /** @var array */
     protected $where = [];
@@ -23,10 +20,9 @@ class Select implements Query
     /** @var Syntax */
     protected $syntax;
 
-    public function __construct(string $table, array $cols, array $where, ?int $limit)
+    public function __construct(string $table, array $where, ?int $limit)
     {
         $this->table = $table;
-        $this->cols = $cols;
         $this->where = $where;
         $this->limit = $limit;
         $this->syntax = new CommonSyntax();
@@ -40,17 +36,7 @@ class Select implements Query
     public function build(): Expression
     {
         $params = [];
-        $sql = 'SELECT ';
-        if ($this->cols) {
-            $cols = [];
-            foreach ($this->cols as $field) {
-                $cols[] = $this->syntax->col($field);
-            }
-            $sql .= implode(', ', $cols);
-        } else {
-            $sql .= '*';
-        }
-        $sql .= ' FROM ' . $this->syntax->table($this->table);
+        $sql = 'DELETE FROM ' . $this->syntax->table($this->table);
         $sql .= ' WHERE ';
 
         $where = [];

@@ -34,28 +34,39 @@ abstract class Table implements JsonSerializable, ArrayAccess
     /** @var array */
     protected $loadedData = [];
 
+    /**
+     * Database setup
+     * same as PDO constructor
+     *
+     * @param string $dsn
+     * @param string|null $username
+     * @param string|null $password
+     * @param array|null $options
+     */
     public static function setPDO(
         string $dsn,
         string $username = null,
         string $password = null,
         array $options = null
     ): void {
-        self::$pdoDriver = explode(':', $dsn, 1)[0];
+        static::$pdoDriver = explode(':', $dsn, 1)[0];
         static::$pdo = new PDO($dsn, $username, $password, $options);
     }
 
     /**
+     * return record by primary key
+     *
      * @param array|mixed $pk
      * @return static
      */
     public static function get($pk): ?self
     {
-        $data = [];
         if (!is_array($pk)) {
             $pk = [$pk];
         }
+
         $data = array_combine(static::$primaryKey, $pk);
-        $res = self::find($data, 1);
+        $res = static::find($data, 1);
         if (!empty($res)) {
             return $res[0];
         }
@@ -70,8 +81,9 @@ abstract class Table implements JsonSerializable, ArrayAccess
      */
     public static function find(array $where = [], ?int $limit = null): array
     {
-        $query = SqlFactory::getSelect(static::$pdoDriver, static::$table, array_keys(self::$columns), $where, $limit);
-        $res = self::query($query->build());
+        $query =
+            SqlFactory::getSelect(static::$pdoDriver, static::$table, array_keys(static::$columns), $where, $limit);
+        $res = static::query($query->build());
         $return = [];
         if ($res) {
             while ($item = $res->fetch(PDO::FETCH_ASSOC)) {
@@ -85,7 +97,7 @@ abstract class Table implements JsonSerializable, ArrayAccess
         return $return;
     }
 
-    public function __construct($data = [])
+    public function __construct(array $data = [])
     {
         $this->data = $data;
     }
@@ -128,11 +140,6 @@ abstract class Table implements JsonSerializable, ArrayAccess
         return false;
     }
 
-    public function insert(): bool
-    {
-        return false;
-    }
-
     protected static function query(Expression $expression): ?PDOStatement
     {
         $sql = static::$pdo->prepare($expression->getSql());
@@ -142,11 +149,9 @@ abstract class Table implements JsonSerializable, ArrayAccess
 
             if (is_int($v)) {
                 $type = PDO::PARAM_INT;
-            }
-            if (is_bool($v)) {
+            } elseif (is_bool($v)) {
                 $type = PDO::PARAM_BOOL;
-            }
-            if (is_null($v)) {
+            } elseif (is_null($v)) {
                 $type = PDO::PARAM_NULL;
             }
 

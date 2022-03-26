@@ -3,8 +3,10 @@
 namespace NORM\SQL\Common;
 
 use NORM\SQL\Expression;
+use NORM\SQL\Query;
+use NORM\SQL\Syntax;
 
-class Update extends Query
+class Update implements Query
 {
     /** @var string */
     protected $table = '';
@@ -15,22 +17,31 @@ class Update extends Query
     /** @var array */
     protected $where = [];
 
-    public function __construct(string $table, array $set = [], array $where = [])
+    /** @var Syntax */
+    protected $syntax;
+
+    public function __construct(string $table, array $set, array $where)
     {
         $this->table = $table;
         $this->where = $where;
         $this->data = $set;
+        $this->syntax = new CommonSyntax();
+    }
+
+    public function setSyntax(Syntax $syntax): void
+    {
+        $this->syntax = $syntax;
     }
 
     public function build(): Expression
     {
         $params = [];
-        $sql = 'UPDATE '. self::TABLE_MARKER_BEGIN . $this->table . self::TABLE_MARKER_END . ' SET ';
+        $sql = 'UPDATE ' . $this->syntax->table($this->table) . ' SET ';
 
         $set = [];
         foreach ($this->set as $key => $val) {
             $param = ':new_' . $key;
-            $set[] = self::COLS_MARKER_BEGIN . $key . self::COLS_MARKER_END . ' = ' . $param;
+            $set[] = $this->syntax->col($key) . ' = ' . $param;
             $params[$param] = $val;
         }
         $sql .= implode(', ', $set);
@@ -39,7 +50,7 @@ class Update extends Query
         $where = [];
         foreach ($this->where as $key => $val) {
             $param = ':old_' . $key;
-            $where[] = self::COLS_MARKER_BEGIN . $key . self::COLS_MARKER_END . ' = ' . $param;
+            $where[] = $this->syntax->col($key) . ' = ' . $param;
             $params[$param] = $val;
         }
         if (empty($where)) {
